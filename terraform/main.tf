@@ -192,7 +192,7 @@ resource "azurerm_linux_virtual_machine" "vm_alvo" {
  # }
 
 admin_username                  = "bifrost"
-admin_password                  = "bifrost2026"
+admin_password                  = "P@ssw0rdBifrost2026!"
 disable_password_authentication = false
 
   os_disk {
