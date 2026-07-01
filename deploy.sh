@@ -42,19 +42,32 @@ echo "[+] A injetar endpoint dinâmico no Frontend..."
 API_URL="https://$FUNCTION_NAME.azurewebsites.net/api/ReconEngine"
 sed -i "/BIFROST_TARGET_API_INJECTION/{n;s|const API_URL = .*|const API_URL = '$API_URL';|}" ~/project-bifrost/bifrost-frontend/index.html
 
-echo "[+] A executar ZipDeploy automatizado do Frontend..."
+echo "[+] A preparar pacote do Frontend e Script Nativo do Docker..."
 cd ~/project-bifrost/bifrost-frontend
+
+# 1. CRIAMOS O SCRIPT DE ARRANQUE DENTRO DA PASTA DO TEU CÓDIGO
+cat << 'EOF' > startup.sh
+#!/bin/sh
+echo "A sincronizar ficheiros HTML com o Nginx..."
+cp -a /home/site/wwwroot/. /usr/share/nginx/html/
+echo "A arrancar o servidor Web..."
+exec nginx -g "daemon off;"
+EOF
+
+chmod +x startup.sh
+
+# 2. EMPACOTAR TUDO (CÓDIGO + SCRIPT DE ARRANQUE)
 rm -f frontend.zip
 zip -r frontend.zip . > /dev/null
+
+echo "[+] A executar ZipDeploy automatizado..."
 az webapp deploy --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --src-path frontend.zip --type zip > /dev/null
 
-echo "[+] A blindar arranque do Docker (Nginx)..."
-# Ativa a partilha de storage e injeta a sintaxe limpa para o Docker não estoirar
+echo "[+] A ligar o Contentor Docker (Nginx) ao script..."
+# Ativamos o disco persistente da Azure
 az webapp config appsettings set --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --settings WEBSITES_ENABLE_APP_SERVICE_STORAGE=true > /dev/null
-
-# O comando de startup blindado com bash puro
-STARTUP_CMD='sh -c "cp -a /home/site/wwwroot/. /usr/share/nginx/html/ 2>/dev/null; exec nginx -g '\''daemon off;'\''"'
-az webapp config set --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --startup-file "$STARTUP_CMD" > /dev/null
+# Dizemos ao Docker para simplesmente executar o script que enviámos (adeus problemas de aspas)
+az webapp config set --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --startup-file "sh /home/site/wwwroot/startup.sh" > /dev/null
 
 echo "[+] A reiniciar o servidor para aplicar alterações..."
 az webapp restart --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" > /dev/null
