@@ -1,19 +1,46 @@
 #!/bin/bash
 # =========================================================================
-# BIFROST SYSTEM - FINAL ENUNCIADO COMPLIANCE DEPLOY SCRIPTS
+# BIFROST SYSTEM - RESILIENT MULTI-REGION DEV-OPS ORCHESTRATION
 # =========================================================================
 set -e
 
 RESOURCE_GROUP="rg-bifrost-final"
 
+# Lista de regiões europeias por ordem de prioridade para testar
+REGIONS=("westeurope" "northeurope" "francecentral" "uksouth")
+
 echo "========================================================================="
-echo "🎯 STARTING DOCKERIZED BIFROST INFRASTRUCTURE ORCHESTRATION"
+echo "🎯 STARTING RESILIENT BIFROST INFRASTRUCTURE ORCHESTRATION"
 echo "========================================================================="
 
-echo "[+] Inicializando infraestrutura com Terraform (IaC)..."
+# Inicializar o Terraform uma única vez
 cd ~/project-bifrost/terraform
 terraform init
-terraform apply -auto-approve
+
+DEPLOY_SUCCESS=false
+
+for REGION in "${REGIONS[@]}"; do
+    echo "[*] A tentar fazer o deploy na região: $REGION..."
+    
+    # Executa o Terraform injetando a região dinamicamente por variável
+    if terraform apply -var="location=$REGION" -auto-approve; then
+        echo "[+] Sucesso! Infraestrutura criada em $REGION."
+        DEPLOY_SUCCESS=true
+        CURRENT_REGION=$REGION
+        break
+    else
+        echo "[⚠️] Falha de quotas ou recursos em $REGION. A limpar e a saltar para a próxima..."
+        # Apaga o grupo de recursos que falhou a meio para libertar nomes e lixo
+        az group delete --name $RESOURCE_GROUP --yes --no-wait || true
+        # Limpa o estado local do Terraform para evitar o erro de inconsistência
+        rm -f terraform.tfstate terraform.tfstate.backup
+    fi
+done
+
+if [ "$DEPLOY_SUCCESS" = false ]; then
+    echo "❌ [ERRO] Todas as regiões da Europa estão saturadas neste momento. Tenta mais tarde."
+    exit 1
+fi
 
 echo "[+] Extraindo recursos e mapeamentos dinâmicos..."
 STORAGE_NAME=$(az storage account list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
@@ -39,9 +66,8 @@ echo "[+] Compilando e publicando Backend Serverless..."
 cd ~/project-bifrost/bifrost-backend
 func azure functionapp publish "$FUNCTION_NAME" --javascript
 
-echo "[+] Injetando Endpoint Dinâmico no Frontend de forma segura..."
+echo "[+] Injetando Endpoint Dinâmico no Frontend..."
 API_URL="https://$FUNCTION_NAME.azurewebsites.net/api/ReconEngine"
-# Substituição cirúrgica com âncora baseada no comentário JS
 sed -i "/BIFROST_TARGET_API_INJECTION/{n;s|const API_URL = .*|const API_URL = '$API_URL';|}" ~/project-bifrost/bifrost-frontend/index.html
 
 echo "[+] Realizando Deployment do Frontend via Azure App Service Container..."
@@ -51,8 +77,8 @@ az webapp deployment source config-zip --resource-group $RESOURCE_GROUP --name "
 rm frontend.zip
 
 echo "========================================================================="
-echo "🚀 ECOSSISTEMA BIFROST ONLINE (DOCKER & ENUNCIADO COMPLIANT)"
+echo "🚀 ECOSSISTEMA BIFROST ONLINE (REGIÃO AFETADA: $CURRENT_REGION)"
 echo "========================================================================="
-echo "👉 Dashboard URL (Abre o App Service no browser):"
+echo "👉 Dashboard URL:"
 echo "   $APP_URL"
 echo "========================================================================="

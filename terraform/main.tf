@@ -11,9 +11,15 @@ provider "azurerm" {
   features {}
 }
 
+# Declaração da variável elástica para o script controlar
+variable "location" {
+  type    = string
+  default = "westeurope"
+}
+
 resource "azurerm_resource_group" "rg" {
   name     = "rg-bifrost-final"
-  location = "westeurope"
+  location = var.location # Passa a ler dinamicamente o que o script mandar
 }
 
 # Storage Account para logs brutos e backend
@@ -106,6 +112,7 @@ resource "azurerm_public_ip" "vm_ip" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
+  sku                 = "Standard" # Fixar Standard contorna o erro de cota
 }
 
 resource "azurerm_virtual_network" "vnet" {
