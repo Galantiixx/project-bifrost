@@ -1,38 +1,37 @@
 #!/bin/bash
 # =========================================================================
-# BIFROST SYSTEM - RESILIENT MULTI-REGION DEV-OPS ORCHESTRATION
+# BIFROST SYSTEM - ANTI-COLLISION MULTI-REGION ORCHESTRATION
 # =========================================================================
 set -e
 
-RESOURCE_GROUP="rg-bifrost-final"
-
-# Lista de regiões europeias por ordem de prioridade para testar
+# Lista de regiões europeias estáveis para testar
 REGIONS=("westeurope" "northeurope" "francecentral" "uksouth")
 
 echo "========================================================================="
 echo "🎯 STARTING RESILIENT BIFROST INFRASTRUCTURE ORCHESTRATION"
 echo "========================================================================="
 
-# Inicializar o Terraform uma única vez
 cd ~/project-bifrost/terraform
 terraform init
 
 DEPLOY_SUCCESS=false
 
 for REGION in "${REGIONS[@]}"; do
-    echo "[*] A tentar fazer o deploy na região: $REGION..."
+    # Gerar um nome de grupo único por região para evitar o erro de "Already Exists"
+    RESOURCE_GROUP="rg-bifrost-$REGION"
+    echo "[*] A tentar fazer o deploy na região: $REGION (RG: $RESOURCE_GROUP)..."
     
-    # Executa o Terraform injetando a região dinamicamente por variável
-    if terraform apply -var="location=$REGION" -auto-approve; then
+    # Executa o Terraform injetando a região e o nome do grupo dinamicamente
+    if terraform apply -var="location=$REGION" -var="rg_name=$RESOURCE_GROUP" -auto-approve; then
         echo "[+] Sucesso! Infraestrutura criada em $REGION."
         DEPLOY_SUCCESS=true
         CURRENT_REGION=$REGION
+        FINAL_RG=$RESOURCE_GROUP
         break
     else
-        echo "[⚠️] Falha de quotas ou recursos em $REGION. A limpar e a saltar para a próxima..."
-        # Apaga o grupo de recursos que falhou a meio para libertar nomes e lixo
-        az group delete --name $RESOURCE_GROUP --yes --no-wait || true
-        # Limpa o estado local do Terraform para evitar o erro de inconsistência
+        echo "[⚠️] Falha de quotas ou recursos em $REGION. A limpar lixo de forma síncrona..."
+        # Sem o --no-wait para garantir que limpa tudo antes de avançar se necessário
+        az group delete --name "$RESOURCE_GROUP" --yes || true
         rm -f terraform.tfstate terraform.tfstate.backup
     fi
 done
@@ -42,7 +41,8 @@ if [ "$DEPLOY_SUCCESS" = false ]; then
     exit 1
 fi
 
-echo "[+] Extraindo recursos e mapeamentos dinâmicos..."
+RESOURCE_GROUP=$FINAL_RG
+echo "[+] Extraindo recursos e mapeamentos dinâmicos do grupo $RESOURCE_GROUP..."
 STORAGE_NAME=$(az storage account list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
 COSMOS_NAME=$(az cosmosdb list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
 FUNCTION_NAME=$(az functionapp list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
