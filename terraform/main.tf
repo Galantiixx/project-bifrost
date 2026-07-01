@@ -80,6 +80,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   geo_location {
     location          = azurerm_resource_group.rg.location
     failover_priority = 0
+    # GARANTIR que NÃO tens a propriedade zone_redundant como true aqui
   }
 
   capabilities {
