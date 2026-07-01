@@ -1,0 +1,13 @@
+{
+  "name": "bifrost-backend",
+  "version": "1.0.0",
+  "description": "Bifrost Serverless Recon Engine",
+  "main": "src/functions/*.js",
+  "scripts": {
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0",
+    "@azure/cosmos": "^4.0.0"
+  }
+}
