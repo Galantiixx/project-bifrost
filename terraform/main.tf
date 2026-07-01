@@ -21,7 +21,7 @@ provider "azurerm" {
 
 variable "location" {
   type    = string
-  default = "westeurope"
+  default = "denmarkeast"
 }
 
 variable "rg_name" {
@@ -95,31 +95,6 @@ resource "azurerm_cosmosdb_account" "cosmos" {
 # COMPUTE LAYER (SERVERLESS BACKEND & CONTAINER FRONTEND)
 # =========================================================================
 
-# Plano para a Azure Function (Serverless Consumption)
-resource "azurerm_service_plan" "plan_function" {
-  name                = "plan-bifrost-serverless"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  os_type             = "Linux"
-  sku_name            = "Y1"
-}
-
-resource "azurerm_linux_function_app" "backend_func" {
-  name                = "func-recon-bifrost-${random_string.unique.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  service_plan_id            = azurerm_service_plan.plan_function.id
-  storage_account_name       = azurerm_storage_account.storage.name
-  storage_account_access_key = azurerm_storage_account.storage.primary_access_key
-
-  site_config {
-    application_stack {
-      node_version = "18"
-    }
-  }
-}
-
 # Plano para o Frontend (App Service Linux B1 para suportar Docker)
 resource "azurerm_service_plan" "plan_app" {
   name                = "plan-bifrost-frontend"
@@ -139,6 +114,31 @@ resource "azurerm_linux_web_app" "frontend_app" {
     application_stack {
       docker_image_name   = "nginx:alpine"
       docker_registry_url = "https://index.docker.io"
+    }
+  }
+}
+
+# Plano para a Azure Function (Passa a Windows para contornar limites de Linux Workers)
+resource "azurerm_service_plan" "plan_function" {
+  name                = "plan-bifrost-serverless"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  os_type             = "Windows"
+  sku_name            = "Y1"
+}
+
+resource "azurerm_windows_function_app" "backend_func" {
+  name                = "func-recon-bifrost-${random_string.unique.result}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  service_plan_id            = azurerm_service_plan.plan_function.id
+  storage_account_name       = azurerm_storage_account.storage.name
+  storage_account_access_key = azurerm_storage_account.storage.primary_access_key
+
+  site_config {
+    application_stack {
+      node_version = "~18"
     }
   }
 }
