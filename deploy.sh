@@ -5,15 +5,15 @@ RESOURCE_GROUP="rg-bifrost-final"
 REGION="denmarkeast"
 
 echo "========================================================================="
-echo "🚀 INICIANDO DEPLOY DIRETO BIFROST - RETA FINAL"
+echo "🚀 INICIANDO DEPLOY BIFROST - SOLO RED TEAM MODE"
 echo "========================================================================="
 
 cd ~/project-bifrost/terraform
 
-# ATENÇÃO: Ficheiros de estado NÃO SÃO APAGADOS para garantir que a VM e Cosmos já criados não se perdem.
+# ATENÇÃO: Ficheiros de estado NÃO SÃO APAGADOS para proteger os recursos já criados.
 terraform init
 
-echo "[+] A aplicar infraestrutura (Atualizando apenas a Azure Function em falta)..."
+echo "[+] A aplicar infraestrutura..."
 terraform apply -var="location=$REGION" -var="rg_name=$RESOURCE_GROUP" -auto-approve
 
 echo "[+] A extrair credenciais dinâmicas da infraestrutura..."
@@ -50,8 +50,13 @@ zip -r frontend.zip index.html logo.png Dockerfile > /dev/null
 az webapp deployment source config-zip --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --src frontend.zip > /dev/null
 rm frontend.zip
 
+echo "[+] A sincronizar o Docker Container (Nginx) com o ZipDeploy..."
+az webapp config set --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --startup-file "cp -a /home/site/wwwroot/. /usr/share/nginx/html/ && nginx -g 'daemon off;'" > /dev/null
+az webapp restart --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" > /dev/null
+
 echo "========================================================================="
-echo "🎯 PROJETO BIFROST CONCLUÍDO COM SUCESSO"
+echo "🎯 PROJETO BIFROST CONCLUÍDO E TOTALMENTE OPERACIONAL"
 echo "========================================================================="
-echo "👉 Dashboard URL: $APP_URL"
+echo "👉 Acede ao teu painel tático Red Team clicando no link abaixo:"
+echo "🌐 $APP_URL"
 echo "========================================================================="
