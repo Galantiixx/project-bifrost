@@ -18,44 +18,23 @@
             --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
         }
 
-        body {
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-
-        .brand { display: flex; align-items: center; gap: 20px; }
-        .brand-logo { width: 90px; height: 90px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.2)); }
-        .brand-text h1 { font-size: 22px; font-weight: 700; margin: 0; color: #ffffff; }
-        .brand-text h1 span { color: var(--accent); font-weight: 500; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 2px 6px; border-radius: 4px; }
-        .brand-text p { margin: 4px 0 0 0; font-size: 12px; color: var(--text-muted); }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 30px; }
+        .brand { display: flex; align-items: center; gap: 24px; }
+        .brand-logo { width: 112px; height: 112px; object-fit: contain; filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.25)); }
+        .brand-text h1 { font-size: 24px; font-weight: 700; margin: 0; color: #ffffff; }
+        .brand-text h1 span { color: var(--accent); font-weight: 500; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; margin-left: 10px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 2px 8px; border-radius: 4px; }
+        .brand-text p { margin: 6px 0 0 0; font-size: 13px; color: var(--text-muted); }
 
         .status-container { display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.5); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; }
         .pulse-dot { width: 8px; height: 8px; background-color: var(--success); border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
-        .status-text { font-size: 11px; font-weight: 600; color: #e2e8f0; letter-spacing: 0.5px; }
+        .status-text { font-size: 12px; font-weight: 500; color: #e2e8f0; letter-spacing: 0.5px; }
 
         .main-layout { display: grid; grid-template-columns: 1fr; gap: 30px; }
         @media (min-width: 1024px) { .main-layout { grid-template-columns: 350px 1fr; } }
 
-        /* Barra Lateral Historial */
         .sidebar { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--card-shadow); height: fit-content; }
         .sidebar h2 { font-size: 13px; text-transform: uppercase; color: #94a3b8; margin-top: 0; margin-bottom: 15px; letter-spacing: 0.5px; }
         .history-list { display: flex; flex-direction: column; gap: 10px; max-height: 550px; overflow-y: auto; }
@@ -64,31 +43,31 @@
         .history-target { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 600; color: #f1f5f9; word-break: break-all; }
         .history-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between; }
 
-        /* Painel Central */
         .workspace { display: flex; flex-direction: column; gap: 30px; }
-        .search-box { background: linear-gradient(145deg, #131b2e, #0f1626); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; gap: 12px; box-shadow: var(--card-shadow); }
-        .search-box input { flex: 1; background: #070a12; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; color: var(--text-main); font-family: inherit; font-size: 14px; outline: none; }
+        .search-box { background: linear-gradient(145deg, #131b2e, #0f1626); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: flex; gap: 16px; box-shadow: var(--card-shadow); }
+        .search-box input { flex: 1; background: #070a12; border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; color: var(--text-main); font-family: inherit; font-size: 15px; outline: none; }
         .search-box input:focus { border-color: var(--accent); }
-        .search-box button { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 24px; font-weight: 600; font-size: 13px; cursor: pointer; text-transform: uppercase; }
+        .search-box button { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 32px; font-weight: 600; font-size: 14px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
         .search-box button:hover { background: var(--accent-hover); }
         .search-box button:disabled { background: #1e293b; color: var(--text-muted); cursor: not-allowed; }
 
         .dashboard-grid { display: grid; grid-template-columns: 100%; gap: 25px; }
         @media (min-width: 768px) { .dashboard-grid { grid-template-columns: 1fr 1fr; } }
         
-        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: var(--card-shadow); }
-        .card h3 { font-size: 12px; text-transform: uppercase; color: #94a3b8; margin-top: 0; margin-bottom: 16px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
-        .card h3::before { content: ''; display: inline-block; width: 3px; height: 10px; background: var(--accent); border-radius: 2px; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 28px; box-shadow: var(--card-shadow); }
+        .card h3 { font-size: 13px; text-transform: uppercase; color: #94a3b8; margin-top: 0; margin-bottom: 24px; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .card h3::before { content: ''; display: inline-block; width: 4px; height: 12px; background: var(--accent); border-radius: 2px; }
 
-        .activity-log { background: #060911; border-radius: 8px; padding: 16px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.6; height: 250px; overflow-y: auto; color: #94a3b8; }
+        .activity-log { background: #060911; border-radius: 8px; padding: 20px; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; height: 250px; overflow-y: auto; color: #94a3b8; }
         .log-info { color: #38bdf8; }
         .log-success { color: var(--success); font-weight: 600; }
+        .log-poll { color: #64748b; }
 
-        .port-tag { display: inline-flex; align-items: center; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); color: var(--success); padding: 6px 12px; border-radius: 6px; margin: 0 8px 8px 0; font-size: 13px; font-family: 'Courier New', monospace; animation: fadeIn 0.3s ease forwards; }
-        .domain-item { border-left: 3px solid var(--accent); background: rgba(239, 68, 68, 0.02); padding: 10px 14px; border-radius: 0 6px 6px 0; margin-bottom: 8px; font-size: 13px; font-family: 'Courier New', monospace; animation: fadeIn 0.3s ease forwards; }
-        .empty-state { color: var(--text-muted); font-size: 13px; font-style: italic; text-align: center; padding: 15px 0; }
+        .port-tag { display: inline-flex; align-items: center; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.15); color: var(--success); padding: 8px 16px; border-radius: 8px; margin-right: 12px; margin-bottom: 12px; font-size: 14px; font-weight: 600; font-family: 'Courier New', monospace; animation: fadeIn 0.4s ease forwards; }
+        .domain-item { border-left: 3px solid var(--accent); background: rgba(239, 68, 68, 0.02); padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 12px; font-size: 14px; color: #e2e8f0; font-family: 'Courier New', monospace; animation: fadeIn 0.4s ease forwards; }
+        .empty-state { color: var(--text-muted); font-size: 14px; font-style: italic; text-align: center; padding: 20px 0; }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -112,7 +91,7 @@
         <div class="sidebar">
             <h2>Recent Targets History</h2>
             <div class="history-list" id="history-zone">
-                <span class="empty-state">A carregar historial do Cosmos DB...</span>
+                <span class="empty-state">A carregar historial...</span>
             </div>
         </div>
 
@@ -122,9 +101,9 @@
                 <button id="exec-btn">Run Audit</button>
             </div>
 
-            <div class="card" style="width: auto;">
+            <div class="card">
                 <h3>Live Orchestration Stream</h3>
-                <div class="activity-log" id="log-output">> Sistema pronto. Introduza um alvo ou selecione do historial...</div>
+                <div class="activity-log" id="log-output">> Sistema pronto. Introduza um alvo...</div>
             </div>
 
             <div class="dashboard-grid">
@@ -143,6 +122,7 @@
 </div>
 
 <script>
+    // BIFROST_TARGET_API_INJECTION
     const API_URL = 'https://func-bifrost-recon-34629.azurewebsites.net/api/ReconEngine';
     const logBox = document.getElementById('log-output');
     const portsZone = document.getElementById('ports-zone');
@@ -156,7 +136,6 @@
         logBox.scrollTop = logBox.scrollHeight;
     }
 
-    // Carregar Lista do Historial vinda do Cosmos DB
     async function loadHistory() {
         try {
             const res = await fetch(API_URL);
@@ -177,11 +156,10 @@
                 `).join('');
             }
         } catch(e) {
-            historyZone.innerHTML = '<span class="empty-state">Erro ao ligar ao Cosmos DB.</span>';
+            historyZone.innerHTML = '<span class="empty-state">Historial offline.</span>';
         }
     }
 
-    // Carregar um relatório estático ao clicar no historial
     async function loadSpecificScan(id) {
         appendLog(`Invocando registo histórico do Cosmos DB: ${id}`, 'info');
         try {
@@ -226,7 +204,7 @@
             appendLog(`Ficheiro bruto arquivado com sucesso no Azure Blob Storage (.json).`, 'success');
             
             renderReport(report);
-            loadHistory(); // Atualizar a barra lateral
+            loadHistory();
             btn.disabled = false;
 
         } catch (err) {
@@ -235,9 +213,7 @@
         }
     });
 
-    // Inicialização da Página
     loadHistory();
 </script>
-
 </body>
 </html>

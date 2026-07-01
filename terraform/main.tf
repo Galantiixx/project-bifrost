@@ -8,192 +8,145 @@ terraform {
 }
 
 provider "azurerm" {
-  features {
-    resource_group {
-      prevent_deletion_if_contains_resources = false
-    }
-  }
+  features {}
 }
 
-data "azurerm_client_config" "current" {}
-
-# 1. GRUPO DE RECURSOS (Região oficial dos guiões)
 resource "azurerm_resource_group" "rg" {
   name     = "rg-bifrost-final"
-  location = "France Central" 
+  location = "westeurope"
 }
 
-resource "random_integer" "ri" {
-  min = 10000
-  max = 99999
-  
-  # Força a rotação de IDs mudando um metadado simples
-  keepers = {
-    version = "2"
-  }
-}
-
-# 2. ARMAZENAMENTO
+# Storage Account para logs brutos e backend
 resource "azurerm_storage_account" "storage" {
-  name                     = "stbifrost${random_integer.ri.result}" 
+  name                     = "stbifrost34629"
   resource_group_name      = azurerm_resource_group.rg.name
   location                 = azurerm_resource_group.rg.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
 }
 
-resource "azurerm_storage_queue" "queue" {
-  name                 = "bifrost-recon-requests"
-  storage_account_name = azurerm_storage_account.storage.name
-}
-
-resource "azurerm_storage_container" "blob_container" {
-  name                  = "raw-recon-outputs"
+# Contentor de Blobs dedicado aos relatórios brutos .json do enunciado
+resource "azurerm_storage_container" "raw_container" {
+  name                  = "historico-bruto"
   storage_account_name  = azurerm_storage_account.storage.name
   container_access_type = "private"
 }
 
-# 3. BASE DE DADOS NOSQL (SERVERLESS)
 resource "azurerm_cosmosdb_account" "cosmos" {
-  name                       = "cosmos-bifrost-${random_integer.ri.result}"
-  location                   = azurerm_resource_group.rg.location
-  resource_group_name        = azurerm_resource_group.rg.name
-  offer_type                 = "Standard"
-  kind                       = "GlobalDocumentDB" 
-  automatic_failover_enabled = false
+  name                = "cosmos-bifrost-34629"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  offer_type          = "Standard"
+  kind                = "GlobalDocumentDB"
 
-  capabilities {
-    name = "EnableServerless" 
-  }
-  
   consistency_policy {
-    consistency_level = "Session" 
+    consistency_level = "Session"
   }
-  
+
   geo_location {
     location          = azurerm_resource_group.rg.location
     failover_priority = 0
-    zone_redundant    = false 
   }
 }
 
-# 4. COFRE DE SEGURANÇA
-resource "azurerm_key_vault" "kv" {
-  name                        = "kv-bifrost-${random_integer.ri.result}"
-  location                    = azurerm_resource_group.rg.location
-  resource_group_name         = azurerm_resource_group.rg.name
-  enabled_for_disk_encryption = true
-  tenant_id                   = data.azurerm_client_config.current.tenant_id
-  sku_name                    = "standard"
-  purge_protection_enabled    = false
-}
-
-# 5. APP SERVICE PLAN E WEB APP (FRONTEND)
-resource "azurerm_service_plan" "app_plan" {
-  name                = "plan-bifrost-web"
+# Plano de Serviço para a Azure Function (Serverless)
+resource "azurerm_service_plan" "plan_function" {
+  name                = "plan-bifrost-serverless"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   os_type             = "Linux"
-  sku_name            = "F1" 
+  sku_name            = "Y1"
 }
 
-resource "azurerm_linux_web_app" "webapp" {
-  name                = "app-bifrost-dash-${random_integer.ri.result}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_service_plan.app_plan.location
-  service_plan_id     = azurerm_service_plan.app_plan.id
-
-  site_config {
-    always_on = false 
-    application_stack {
-      docker_image_name   = "nginx:alpine" 
-      docker_registry_url = "https://index.docker.io"
-    }
-  }
-}
-
-# 6. AZURE FUNCTION APP (BACKEND)
-resource "azurerm_service_plan" "function_plan" {
-  name                = "plan-bifrost-func"
+resource "azurerm_linux_function_app" "function" {
+  name                = "func-bifrost-recon-34629"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  os_type             = "Linux"
-  sku_name            = "Y1" 
-}
+  service_plan_id     = azurerm_service_plan.plan_function.id
 
-resource "azurerm_linux_function_app" "function_app" {
-  name                       = "func-bifrost-recon-${random_integer.ri.result}"
-  resource_group_name        = azurerm_resource_group.rg.name
-  location                   = azurerm_resource_group.rg.location
-  service_plan_id            = azurerm_service_plan.function_plan.id
   storage_account_name       = azurerm_storage_account.storage.name
   storage_account_access_key = azurerm_storage_account.storage.primary_access_key
 
   site_config {
     application_stack {
-      node_version = "18" 
+      node_version = "18"
     }
   }
 }
 
-# 7. MÁQUINA ALVO
-resource "azurerm_virtual_network" "vnet_alvo" {
-  name                = "vnet-bifrost-alvo-we" # <--- ALTERADO O NOME
-  address_space       = ["10.0.0.0/16"]
-  location            = "West Europe"
+# ==================== INTEGRATION: DOCKER & APP SERVICE ====================
+
+# Plano de Serviço dedicado para o App Service Containers
+resource "azurerm_service_plan" "plan_app" {
+  name                = "plan-bifrost-appservice"
   resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  os_type             = "Linux"
+  sku_name            = "B1" # Plano básico económico que suporta Docker nativo
 }
 
-resource "azurerm_subnet" "subnet_alvo" {
-  name                 = "subrede-alvo-we" # <--- ALTERADO O NOME
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet_alvo.name
-  address_prefixes     = ["10.0.1.0/24"]
+# Azure App Service que vai rodar o Frontend em Docker
+resource "azurerm_linux_web_app" "frontend_app" {
+  name                = "app-bifrost-frontend-34629"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.plan_app.id
+
+  site_config {
+    application_stack {
+      docker_image_name   = "nginx:alpine" # Imagem base inicial (o deploy.sh atualiza com o build local)
+      docker_registry_url = "https://index.docker.io"
+    }
+  }
 }
 
-resource "azurerm_public_ip" "ip_alvo" {
-  name                = "ip-bifrost-alvo-we" # <--- ALTERADO O NOME
-  location            = "West Europe"
+# ==================== VM ALVO ESTÁTICA PARA TESTES ====================
+resource "azurerm_public_ip" "vm_ip" {
+  name                = "ip-alvo-bifrost"
   resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
-  sku                 = "Standard" 
 }
 
-resource "azurerm_network_interface" "nic_alvo" {
-  name                = "nic-bifrost-alvo-we" # <--- ALTERADO O NOME
-  location            = "West Europe"
+resource "azurerm_virtual_network" "vnet" {
+  name                = "vnet-bifrost"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+resource "azurerm_subnet" "subnet" {
+  name                 = "internal"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["10.0.2.0/24"]
+}
+
+resource "azurerm_network_interface" "nic" {
+  name                = "nic-alvo-bifrost"
+  location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 
   ip_configuration {
     name                          = "internal"
-    subnet_id                     = azurerm_subnet.subnet_alvo.id
+    subnet_id                     = azurerm_subnet.subnet.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.ip_alvo.id
+    public_ip_address_id          = azurerm_public_ip.vm_ip.id
   }
 }
 
-resource "azurerm_linux_virtual_machine" "vm_alvo" {
+resource "azurerm_linux_virtual_machine" "vm" {
   name                = "vm-alvo-bifrost"
   resource_group_name = azurerm_resource_group.rg.name
-  location            = "West Europe"
-  
-  # ALTERADO PARA O SKU DISPONÍVEL NA TUA LISTA
-  size                = "Standard_D2s_v6" 
-  
-  
+  location            = azurerm_resource_group.rg.location
+  size                = "Standard_D2s_v6"
+  admin_username      = "operador"
   network_interface_ids = [
-    azurerm_network_interface.nic_alvo.id,
+    azurerm_network_interface.nic.id,
   ]
 
- # Comenta ou apaga estas linhas se aparecerem:
- # admin_ssh_key {
- #   username   = "operador"
- #   public_key = file("${path.module}/id_rsa.pub")
- # }
-
-admin_username                  = "bifrost"
-admin_password                  = "P@ssw0rdBifrost2026!"
-disable_password_authentication = false
+  admin_password                  = "P@ssw0rdBifrost2026!"
+  disable_password_authentication = false
 
   os_disk {
     caching              = "ReadWrite"
@@ -202,8 +155,8 @@ disable_password_authentication = false
 
   source_image_reference {
     publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts-gen2" # Gen2 nativo e compatível com a série v6
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts"
     version   = "latest"
   }
 }
