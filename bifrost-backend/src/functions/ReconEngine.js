@@ -52,6 +52,9 @@ app.http('ReconEngine', {
                     return { status: 200, headers: corsHeaders, body: JSON.stringify(items) };
                 }
             } catch (e) {
+                // ANTES: engolia o erro em silêncio e devolvia sempre [] com 200 OK.
+                // AGORA: regista a mensagem real e o código de erro do Cosmos DB.
+                context.log(`Erro Cosmos DB (GET, scanId=${scanId || 'lista'}): ${e.code || ''} ${e.message}`);
                 return { status: 200, headers: corsHeaders, body: JSON.stringify([]) };
             }
         }
@@ -104,8 +107,11 @@ app.http('ReconEngine', {
                 // 1. Salvar Dados Estruturados no Cosmos DB
                 try {
                     await container.items.create(scanReport);
+                    context.log(`Scan ${scanId} gravado com sucesso no Cosmos DB.`);
                 } catch (dbErr) {
-                    context.log("Erro Cosmos DB");
+                    // ANTES: context.log("Erro Cosmos DB"); - sem detalhe nenhum.
+                    // AGORA: mensagem, código de erro HTTP do Cosmos, e stack.
+                    context.log(`Erro Cosmos DB (POST, id=${scanId}): ${dbErr.code || ''} ${dbErr.message}`);
                 }
 
                 // 2. REQUISITO OBRIGATÓRIO: Salvar Relatório Bruto (.json) no Azure Blob Storage
@@ -124,6 +130,7 @@ app.http('ReconEngine', {
                 return { status: 200, headers: corsHeaders, body: JSON.stringify(scanReport) };
 
             } catch (err) {
+                context.log(`Erro fatal no fluxo POST: ${err.message}`);
                 return { status: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) };
             }
         }
