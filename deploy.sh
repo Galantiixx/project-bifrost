@@ -2,7 +2,7 @@
 set -e
 
 RESOURCE_GROUP="rg-bifrost-final"
-REGION="spaincentral"
+REGION="denmarkeast"
 
 # O script descobre a sua própria localização, para funcionar
 # independentemente de onde deres 'git clone' no Cloud Shell.
