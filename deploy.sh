@@ -49,16 +49,22 @@ npm install --omit=dev
 echo "[+] A publicar código do Backend (Azure Function)..."
 func azure functionapp publish "$FUNCTION_NAME" --javascript
 
-echo "[+] A injetar endpoint dinâmico no Frontend (antes do build da imagem)..."
+echo "[+] A preparar cópia temporária do Frontend para injeção de valores dinâmicos..."
 API_URL="https://$FUNCTION_NAME.azurewebsites.net/api/ReconEngine"
-cd "$FRONTEND_DIR"
-sed -i "/BIFROST_TARGET_API_INJECTION/{n;s|const API_URL = .*|const API_URL = '$API_URL';|}" index.html
+VM_IP=$(az network public-ip show --resource-group $RESOURCE_GROUP --name ip-alvo-bifrost --query ipAddress -o tsv)
+
+# IMPORTANTE: a injeção acontece numa cópia temporária, NUNCA no
+# bifrost-frontend/index.html rastreado pelo Git. Se mexêssemos no
+# ficheiro original, ficava "sujo" no working tree depois de cada deploy
+# e bloqueava silenciosamente o próximo 'git pull'.
+BUILD_DIR=$(mktemp -d)
+cp -r "$FRONTEND_DIR"/. "$BUILD_DIR"/
+sed -i "/BIFROST_TARGET_API_INJECTION/{n;s|const API_URL = .*|const API_URL = '$API_URL';|}" "$BUILD_DIR/index.html"
+sed -i "/BIFROST_VM_IP_INJECTION/{n;s|const DEFAULT_TARGET_IP = .*|const DEFAULT_TARGET_IP = '$VM_IP';|}" "$BUILD_DIR/index.html"
 
 echo "[+] A construir a imagem no Azure Container Registry (az acr build - sem Docker local)..."
-# O Cloud Shell não tem daemon Docker disponível, por isso o build corre
-# remotamente na Azure. O contexto de build é a própria pasta bifrost-frontend,
-# onde estão o Dockerfile, o index.html e o logo.png.
-az acr build --registry "$ACR_NAME" --image web-bifrost-frontend:latest "$FRONTEND_DIR"
+az acr build --registry "$ACR_NAME" --image web-bifrost-frontend:latest "$BUILD_DIR"
+rm -rf "$BUILD_DIR"
 
 echo "[+] A apontar a App Service para a nova imagem e a forçar novo pull..."
 az webapp config container set \

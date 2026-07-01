@@ -1,3 +1,14 @@
-.terraform/
-*.tfstate
+# Node / Azure Functions
 node_modules/
+bifrost-backend/node_modules/
+ 
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfplan
+ 
+# Resíduos da abordagem antiga de deploy (zip deploy + startup script) - já não são usados
+bifrost-frontend/frontend.zip
+bifrost-frontend/startup.sh
