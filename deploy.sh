@@ -44,19 +44,24 @@ echo "[+] A injetar endpoint dinâmico no Frontend..."
 API_URL="https://$FUNCTION_NAME.azurewebsites.net/api/ReconEngine"
 sed -i "/BIFROST_TARGET_API_INJECTION/{n;s|const API_URL = .*|const API_URL = '$API_URL';|}" ~/project-bifrost/bifrost-frontend/index.html
 
-echo "[+] A carregar Frontend para o App Service..."
+echo "[+] A carregar Frontend injetado para o App Service (via ZipDeploy automatizado)..."
 cd ~/project-bifrost/bifrost-frontend
-zip -r frontend.zip index.html logo.png Dockerfile > /dev/null
-az webapp deployment source config-zip --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --src frontend.zip > /dev/null
-rm frontend.zip
+rm -f frontend.zip
+zip -r frontend.zip . > /dev/null
 
-echo "[+] A sincronizar o Docker Container (Nginx) com o ZipDeploy..."
-az webapp config set --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --startup-file "cp -a /home/site/wwwroot/. /usr/share/nginx/html/ && nginx -g 'daemon off;'" > /dev/null
+# Usa o novo comando deploy (que não bloqueia no Kudu) de forma totalmente automatizada
+az webapp deploy --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --src-path frontend.zip --type zip > /dev/null
+
+echo "[+] A mapear o Docker Container (Nginx) para o código fonte..."
+# Ativa a partilha de disco e força o Nginx a ler a pasta correta sem falhas
+az webapp config appsettings set --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --settings WEBSITES_ENABLE_APP_SERVICE_STORAGE=true > /dev/null
+az webapp config set --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" --startup-file "rm -rf /usr/share/nginx/html && ln -s /home/site/wwwroot /usr/share/nginx/html && nginx -g 'daemon off;'" > /dev/null
+
+echo "[+] A reiniciar App Service para aplicar a injeção do código..."
 az webapp restart --resource-group $RESOURCE_GROUP --name "$APP_SERVICE_NAME" > /dev/null
 
 echo "========================================================================="
 echo "🎯 PROJETO BIFROST CONCLUÍDO E TOTALMENTE OPERACIONAL"
 echo "========================================================================="
-echo "👉 Acede ao teu painel tático Red Team clicando no link abaixo:"
-echo "🌐 $APP_URL"
+echo "👉 Dashboard URL: $APP_URL"
 echo "========================================================================="
