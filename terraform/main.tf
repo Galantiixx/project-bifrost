@@ -53,6 +53,20 @@ resource "azurerm_subnet" "subnet" {
 }
 
 # =========================================================================
+# CONTAINER REGISTRY (ONDE FICA A TUA IMAGEM DOCKER CUSTOMIZADA)
+# =========================================================================
+
+resource "azurerm_container_registry" "acr" {
+  name                = "acrbifrost${random_string.unique.result}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  sku                 = "Basic"
+  # admin_enabled = true simplifica a autenticação para um projeto académico
+  # (username/password diretos). Em produção usar-se-ia uma Managed Identity.
+  admin_enabled = true
+}
+
+# =========================================================================
 # PERSISTENCE LAYER (STORAGE ACCOUNT & COSMOS DB)
 # =========================================================================
 
@@ -112,9 +126,19 @@ resource "azurerm_linux_web_app" "frontend_app" {
 
   site_config {
     application_stack {
-      docker_image_name   = "nginx:alpine"
-      docker_registry_url = "https://index.docker.io"
+      # Aponta para a TUA imagem, dentro do TEU registry - não para
+      # o nginx:alpine genérico do Docker Hub.
+      docker_image_name        = "web-bifrost-frontend:latest"
+      docker_registry_url      = "https://${azurerm_container_registry.acr.login_server}"
+      docker_registry_username = azurerm_container_registry.acr.admin_username
+      docker_registry_password = azurerm_container_registry.acr.admin_password
     }
+  }
+
+  app_settings = {
+    # Garante que a Azure não faz cache eterna da imagem entre deploys.
+    "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
+    "DOCKER_ENABLE_CI"                    = "true"
   }
 }
 
@@ -140,6 +164,14 @@ resource "azurerm_windows_function_app" "backend_func" {
     application_stack {
       node_version = "~18"
     }
+  }
+
+  # Necessário para o modelo de programação v4 (app.http(...) no ReconEngine.js)
+  # ser indexado corretamente. Sem isto o host arranca mas não regista
+  # nenhuma função, e qualquer chamada a /api/... devolve 404 vazio.
+  # Fica aqui, em código, para não se perder num terraform apply futuro.
+  app_settings = {
+    AzureWebJobsFeatureFlags = "EnableWorkerIndexing"
   }
 }
 
