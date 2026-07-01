@@ -180,16 +180,20 @@ resource "azurerm_linux_virtual_machine" "vm_alvo" {
   # ALTERADO PARA O SKU DISPONÍVEL NA TUA LISTA
   size                = "Standard_D2s_v6" 
   
-  admin_username      = "adminuser"
   
   network_interface_ids = [
     azurerm_network_interface.nic_alvo.id,
   ]
 
-  admin_ssh_key {
-    username   = "adminuser"
-    public_key = file("${path.module}/id_rsa.pub")
-  }
+ # Comenta ou apaga estas linhas se aparecerem:
+ # admin_ssh_key {
+ #   username   = "operador"
+ #   public_key = file("${path.module}/id_rsa.pub")
+ # }
+
+admin_username                  = "bifrost"
+admin_password                  = "bifrost2026"
+disable_password_authentication = false
 
   os_disk {
     caching              = "ReadWrite"
