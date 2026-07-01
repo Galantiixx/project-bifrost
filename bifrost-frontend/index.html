@@ -40,6 +40,7 @@
         .history-list { display: flex; flex-direction: column; gap: 10px; max-height: 550px; overflow-y: auto; }
         .history-item { background: #070a12; border: 1px solid var(--border); padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
         .history-item:hover { border-color: var(--accent); background: rgba(239, 68, 68, 0.02); }
+        .history-item.active { border-color: var(--accent); background: rgba(239, 68, 68, 0.08); box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25) inset; }
         .history-target { font-family: 'Courier New', monospace; font-size: 13px; font-weight: 600; color: #f1f5f9; word-break: break-all; }
         .history-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between; }
 
@@ -97,7 +98,7 @@
 
         <div class="workspace">
             <div class="search-box">
-                <input type="text" id="target-ip" value="51.124.38.94" placeholder="Insira o IP ou Domínio Alvo...">
+                <input type="text" id="target-ip" placeholder="Insira o IP ou Domínio Alvo...">
                 <button id="exec-btn">Run Audit</button>
             </div>
 
@@ -124,11 +125,24 @@
 <script>
     // BIFROST_TARGET_API_INJECTION
     const API_URL = 'https://func-bifrost-recon-34629.azurewebsites.net/api/ReconEngine';
+
+    // BIFROST_VM_IP_INJECTION
+    const DEFAULT_TARGET_IP = '51.124.38.94';
+
     const logBox = document.getElementById('log-output');
     const portsZone = document.getElementById('ports-zone');
     const domainsZone = document.getElementById('domains-zone');
     const historyZone = document.getElementById('history-zone');
+    const targetInput = document.getElementById('target-ip');
     const btn = document.getElementById('exec-btn');
+
+    // Guarda qual o scan atualmente em destaque na lista lateral,
+    // para mantermos o realce visual mesmo depois de recarregar a lista.
+    let activeScanId = null;
+
+    // O valor por defeito do input vem sempre do IP real da VM alvo,
+    // injetado no deploy.sh a partir do output do Terraform - nunca fica desatualizado.
+    targetInput.value = DEFAULT_TARGET_IP;
 
     function appendLog(text, type = 'info') {
         const time = new Date().toLocaleTimeString();
@@ -136,46 +150,68 @@
         logBox.scrollTop = logBox.scrollHeight;
     }
 
-    async function loadHistory() {
+    function renderHistoryList(items) {
+        historyZone.innerHTML = items.map(item => `
+            <div class="history-item ${item.id === activeScanId ? 'active' : ''}" data-id="${item.id}" onclick="loadSpecificScan('${item.id}')">
+                <div class="history-target">${item.alvo}</div>
+                <div class="history-meta">
+                    <span>Ports: ${item.portas_abertas.length}</span>
+                    <span>${new Date(item.timestamp).toLocaleDateString()}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // autoload=true: além de listar o historial, carrega e mostra automaticamente
+    // o relatório mais recente nos painéis de Portas/Domínios - assim os
+    // resultados persistem visualmente entre refreshes da página.
+    async function loadHistory(autoload = true) {
         try {
             const res = await fetch(API_URL);
             if (res.status === 200) {
                 const items = await res.json();
-                if(items.length === 0) {
+                if (items.length === 0) {
                     historyZone.innerHTML = '<span class="empty-state">Sem registos na base de dados.</span>';
                     return;
                 }
-                historyZone.innerHTML = items.map(item => `
-                    <div class="history-item" onclick="loadSpecificScan('${item.id}')">
-                        <div class="history-target">${item.alvo}</div>
-                        <div class="history-meta">
-                            <span>Ports: ${item.portas_abertas.length}</span>
-                            <span>${new Date(item.timestamp).toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                `).join('');
+                renderHistoryList(items);
+
+                if (autoload) {
+                    await loadSpecificScan(items[0].id, true);
+                }
             }
-        } catch(e) {
+        } catch (e) {
             historyZone.innerHTML = '<span class="empty-state">Historial offline.</span>';
         }
     }
 
-    async function loadSpecificScan(id) {
-        appendLog(`Invocando registo histórico do Cosmos DB: ${id}`, 'info');
+    async function loadSpecificScan(id, silent = false) {
+        if (!silent) appendLog(`Invocando registo histórico do Cosmos DB: ${id}`, 'info');
         try {
             const res = await fetch(`${API_URL}?id=${id}`);
-            if(res.status === 200) {
+            if (res.status === 200) {
                 const report = await res.json();
+                activeScanId = id;
                 renderReport(report);
-                appendLog(`Relatório ${id} extraído e renderizado no ecrã.`, 'success');
+
+                // Atualiza o realce visual na lista lateral sem precisar de a recarregar
+                document.querySelectorAll('.history-item').forEach(el => {
+                    el.classList.toggle('active', el.dataset.id === id);
+                });
+
+                if (!silent) {
+                    appendLog(`Relatório ${id} extraído e renderizado no ecrã.`, 'success');
+                } else {
+                    appendLog(`Sessão restaurada: último relatório (${report.alvo}) carregado do Cosmos DB.`, 'info');
+                }
             }
-        } catch(err) {
-            appendLog(`Falha ao obter o registo histórico.`, 'info');
+        } catch (err) {
+            if (!silent) appendLog(`Falha ao obter o registo histórico.`, 'info');
         }
     }
 
     function renderReport(report) {
-        if(report.portas_abertas.length > 0) {
+        if (report.portas_abertas.length > 0) {
             portsZone.innerHTML = report.portas_abertas.map(p => `<span class="port-tag">🔒 Port ${p}</span>`).join('');
         } else {
             portsZone.innerHTML = '<span class="empty-state">Nenhum serviço público aberto detetado.</span>';
@@ -184,8 +220,8 @@
     }
 
     btn.addEventListener('click', async () => {
-        const target = document.getElementById('target-ip').value.trim();
-        if(!target) return;
+        const target = targetInput.value.trim();
+        if (!target) return;
 
         btn.disabled = true;
         logBox.innerHTML = `<span class="log-info">[${new Date().toLocaleTimeString()}] Inicializando vetor de auditoria ativa: ${target}</span>`;
@@ -202,9 +238,11 @@
             appendLog(`Varredura e mapeamento concluídos via Serverless.`, 'success');
             appendLog(`Relatório estruturado persistido no Cosmos DB.`, 'info');
             appendLog(`Ficheiro bruto arquivado com sucesso no Azure Blob Storage (.json).`, 'success');
-            
+
+            activeScanId = report.id;
             renderReport(report);
-            loadHistory();
+            // false: já temos o relatório novo renderizado, só precisamos de atualizar a lista lateral
+            loadHistory(false);
             btn.disabled = false;
 
         } catch (err) {

@@ -42,8 +42,11 @@ az functionapp config appsettings set --name "$FUNCTION_NAME" --resource-group $
 APP_URL="https://$APP_SERVICE_NAME.azurewebsites.net"
 az functionapp cors add --resource-group $RESOURCE_GROUP --name "$FUNCTION_NAME" --allowed-origins "$APP_URL" > /dev/null
 
-echo "[+] A publicar código do Backend (Azure Function)..."
+echo "[+] A instalar dependências do Backend (node_modules não vem do Git)..."
 cd "$BACKEND_DIR"
+npm install --omit=dev
+
+echo "[+] A publicar código do Backend (Azure Function)..."
 func azure functionapp publish "$FUNCTION_NAME" --javascript
 
 echo "[+] A injetar endpoint dinâmico no Frontend (antes do build da imagem)..."
