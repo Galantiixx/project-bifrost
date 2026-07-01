@@ -108,10 +108,13 @@ app.http('ReconEngine', {
                 try {
                     await container.items.create(scanReport);
                     context.log(`Scan ${scanId} gravado com sucesso no Cosmos DB.`);
+                    scanReport._debug_cosmos = "OK";
                 } catch (dbErr) {
                     // ANTES: context.log("Erro Cosmos DB"); - sem detalhe nenhum.
-                    // AGORA: mensagem, código de erro HTTP do Cosmos, e stack.
+                    // AGORA: mensagem, código de erro HTTP do Cosmos, e exposto na
+                    // própria resposta para diagnosticar sem depender do Log Stream.
                     context.log(`Erro Cosmos DB (POST, id=${scanId}): ${dbErr.code || ''} ${dbErr.message}`);
+                    scanReport._debug_cosmos = `ERRO: ${dbErr.code || ''} ${dbErr.message}`;
                 }
 
                 // 2. REQUISITO OBRIGATÓRIO: Salvar Relatório Bruto (.json) no Azure Blob Storage
