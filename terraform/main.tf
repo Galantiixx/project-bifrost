@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -80,7 +84,6 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   geo_location {
     location          = azurerm_resource_group.rg.location
     failover_priority = 0
-    # GARANTIR que NÃO tens a propriedade zone_redundant como true aqui
   }
 
   capabilities {
@@ -149,7 +152,7 @@ resource "azurerm_public_ip" "vm_ip" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   allocation_method   = "Static"
-  sku                 = "Standard" # SKU Standard para contornar restrições académicas
+  sku                 = "Standard"
 }
 
 resource "azurerm_network_interface" "vm_nic" {
