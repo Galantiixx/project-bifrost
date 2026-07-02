@@ -21,16 +21,16 @@ provider "azurerm" {
 
 variable "location" {
   type    = string
-  default = "japaneast"  # Alterado para uma região com capacidade garantida
+  default = "japaneast" 
 }
 
 variable "rg_name" {
   type    = string
-  default = "rg-bifrost-final-v6" # Alterado para garantir um deploy limpo
+  default = "rg-bifrost-final-v7" # Grupo novo para garantir sucesso limpo
 }
 
 # =========================================================================
-# CORE INFRASTRUCTURE (RESOURCE GROUP & NETWORKING)
+# CORE INFRASTRUCTURE (RESOURCE GROUP)
 # =========================================================================
 
 resource "azurerm_resource_group" "rg" {
@@ -38,22 +38,8 @@ resource "azurerm_resource_group" "rg" {
   location = var.location
 }
 
-resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-bifrost"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-}
-
-resource "azurerm_subnet" "subnet" {
-  name                 = "internal"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.2.0/24"]
-}
-
 # =========================================================================
-# CONTAINER REGISTRY (ONDE FICA A TUA IMAGEM DOCKER CUSTOMIZADA)
+# CONTAINER REGISTRY
 # =========================================================================
 
 resource "azurerm_container_registry" "acr" {
@@ -61,9 +47,7 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   sku                 = "Basic"
-  # admin_enabled = true simplifica a autenticação para um projeto académico
-  # (username/password diretos). Em produção usar-se-ia uma Managed Identity.
-  admin_enabled = true
+  admin_enabled       = true
 }
 
 # =========================================================================
@@ -109,7 +93,6 @@ resource "azurerm_cosmosdb_account" "cosmos" {
 # COMPUTE LAYER (SERVERLESS BACKEND & CONTAINER FRONTEND)
 # =========================================================================
 
-# Plano para o Frontend (App Service Linux B1 para suportar Docker)
 resource "azurerm_service_plan" "plan_app" {
   name                = "plan-bifrost-frontend"
   location            = azurerm_resource_group.rg.location
@@ -126,8 +109,6 @@ resource "azurerm_linux_web_app" "frontend_app" {
 
   site_config {
     application_stack {
-      # Aponta para a TUA imagem, dentro do TEU registry - não para
-      # o nginx:alpine genérico do Docker Hub.
       docker_image_name        = "web-bifrost-frontend:latest"
       docker_registry_url      = "https://${azurerm_container_registry.acr.login_server}"
       docker_registry_username = azurerm_container_registry.acr.admin_username
@@ -136,13 +117,11 @@ resource "azurerm_linux_web_app" "frontend_app" {
   }
 
   app_settings = {
-    # Garante que a Azure não faz cache eterna da imagem entre deploys.
     "WEBSITES_ENABLE_APP_SERVICE_STORAGE" = "false"
     "DOCKER_ENABLE_CI"                    = "true"
   }
 }
 
-# Plano para a Azure Function (Passa a Windows para contornar limites de Linux Workers)
 resource "azurerm_service_plan" "plan_function" {
   name                = "plan-bifrost-serverless"
   location            = azurerm_resource_group.rg.location
@@ -166,63 +145,8 @@ resource "azurerm_windows_function_app" "backend_func" {
     }
   }
 
-  # Necessário para o modelo de programação v4 (app.http(...) no ReconEngine.js)
-  # ser indexado corretamente. Sem isto o host arranca mas não regista
-  # nenhuma função, e qualquer chamada a /api/... devolve 404 vazio.
-  # Fica aqui, em código, para não se perder num terraform apply futuro.
   app_settings = {
     AzureWebJobsFeatureFlags = "EnableWorkerIndexing"
-  }
-}
-
-# =========================================================================
-# SANDBOX LABORATORY (TARGET VM)
-# =========================================================================
-
-resource "azurerm_public_ip" "vm_ip" {
-  name                = "ip-alvo-bifrost"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
-resource "azurerm_network_interface" "vm_nic" {
-  name                = "nic-alvo-bifrost"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.vm_ip.id
-  }
-}
-
-resource "azurerm_linux_virtual_machine" "target_vm" {
-  name                = "vm-alvo-bifrost"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  size                = "Standard_DS1_v2" # Alterado para SKU empresarial com quota livre
-  admin_username      = "bifrostadmin"
-  network_interface_ids = [
-    azurerm_network_interface.vm_nic.id,
-  ]
-
-  admin_password                  = "BifrostPass1234!"
-  disable_password_authentication = false
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
-    version   = "latest"
   }
 }
 
