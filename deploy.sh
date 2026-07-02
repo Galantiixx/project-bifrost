@@ -1,26 +1,25 @@
 #!/bin/bash
 set -e
 
-RESOURCE_GROUP="rg-bifrost-final-v6"
+RESOURCE_GROUP="rg-bifrost-final-v7"
 REGION="japaneast"
 
-# O script descobre a sua própria localização, para funcionar
-# independentemente de onde deres 'git clone' no Cloud Shell.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$SCRIPT_DIR/terraform"
-BACKEND_DIR="$SCRIPT_DIR/bifrost-backend"      # <-- ajusta aqui se a tua pasta se chamar "bitfrost-backend"
+BACKEND_DIR="$SCRIPT_DIR/bifrost-backend"
 FRONTEND_DIR="$SCRIPT_DIR/bifrost-frontend"
 
 echo "========================================================================="
-echo "🚀 INICIANDO DEPLOY BIFROST - AUTOMATIZAÇÃO TOTAL (SOLO)"
+echo "🚀 INICIANDO DEPLOY BIFROST - AUTOMATIZAÇÃO TOTAL (SEM VM ALVO)"
 echo "========================================================================="
 
-cd "$TERRAFORM_DIR"
+echo "[+] Limpando estado local antigo do Terraform..."
+rm -rf "$TERRAFORM_DIR/.terraform" "$TERRAFORM_DIR/terraform.tfstate" "$TERRAFORM_DIR/terraform.tfstate.backup"
 
-# O estado do Terraform não é apagado para proteger a VM e a DB já criadas.
+cd "$TERRAFORM_DIR"
 terraform init
 
-echo "[+] A orquestrar infraestrutura (inclui agora o Azure Container Registry)..."
+echo "[+] A orquestrar infraestrutura..."
 terraform apply -var="location=$REGION" -var="rg_name=$RESOURCE_GROUP" -auto-approve
 
 echo "[+] A extrair variáveis dinâmicas..."
@@ -42,7 +41,7 @@ az functionapp config appsettings set --name "$FUNCTION_NAME" --resource-group $
 APP_URL="https://$APP_SERVICE_NAME.azurewebsites.net"
 az functionapp cors add --resource-group $RESOURCE_GROUP --name "$FUNCTION_NAME" --allowed-origins "$APP_URL" > /dev/null
 
-echo "[+] A instalar dependências do Backend (node_modules não vem do Git)..."
+echo "[+] A instalar dependências do Backend..."
 cd "$BACKEND_DIR"
 npm install --omit=dev
 
@@ -51,22 +50,20 @@ func azure functionapp publish "$FUNCTION_NAME" --javascript
 
 echo "[+] A preparar cópia temporária do Frontend para injeção de valores dinâmicos..."
 API_URL="https://$FUNCTION_NAME.azurewebsites.net/api/ReconEngine"
-VM_IP=$(az network public-ip show --resource-group $RESOURCE_GROUP --name ip-alvo-bifrost --query ipAddress -o tsv)
 
-# IMPORTANTE: a injeção acontece numa cópia temporária, NUNCA no
-# bifrost-frontend/index.html rastreado pelo Git. Se mexêssemos no
-# ficheiro original, ficava "sujo" no working tree depois de cada deploy
-# e bloqueava silenciosamente o próximo 'git pull'.
+# Como a VM foi removida, injetamos um IP de demonstração genérico (Google DNS)
+VM_IP="8.8.8.8" 
+
 BUILD_DIR=$(mktemp -d)
 cp -r "$FRONTEND_DIR"/. "$BUILD_DIR"/
 sed -i "/BIFROST_TARGET_API_INJECTION/{n;s|const API_URL = .*|const API_URL = '$API_URL';|}" "$BUILD_DIR/index.html"
 sed -i "/BIFROST_VM_IP_INJECTION/{n;s|const DEFAULT_TARGET_IP = .*|const DEFAULT_TARGET_IP = '$VM_IP';|}" "$BUILD_DIR/index.html"
 
-echo "[+] A construir a imagem no Azure Container Registry (az acr build - sem Docker local)..."
+echo "[+] A construir a imagem no Azure Container Registry..."
 az acr build --registry "$ACR_NAME" --image web-bifrost-frontend:latest "$BUILD_DIR"
 rm -rf "$BUILD_DIR"
 
-echo "[+] A apontar a App Service para a nova imagem e a forçar novo pull..."
+echo "[+] A apontar a App Service para a nova imagem..."
 az webapp config container set \
   --resource-group $RESOURCE_GROUP \
   --name "$APP_SERVICE_NAME" \
