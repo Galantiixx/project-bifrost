@@ -21,7 +21,7 @@ provider "azurerm" {
 
 variable "location" {
   type    = string
-  default = "denmarkeast"
+  default = "westeurope"  # Alterado de "denmarkeast" para "westeurope"
 }
 
 variable "rg_name" {
